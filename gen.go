@@ -54,6 +54,18 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 	}
 
 	switch lang {
+	case "cffi":
+		o, err = os.Create(filepath.Join(odir, p.Name()+".py"))
+		if err != nil {
+			return err
+		}
+		defer o.Close()
+
+		err = bind.GenCFFI(o, fset, p, 2)
+		if err != nil {
+			return err
+		}
+
 	case "python2", "py2":
 		o, err = os.Create(filepath.Join(odir, p.Name()+".c"))
 		if err != nil {
@@ -103,7 +115,7 @@ func genPkg(odir string, p *bind.Package, lang string) error {
 		}
 
 	default:
-		return fmt.Errorf("unknown target language: %q\n", lang)
+		return fmt.Errorf("gopy: unknown target language: %q", lang)
 	}
 
 	if err != nil {

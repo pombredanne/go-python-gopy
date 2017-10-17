@@ -130,6 +130,10 @@ func (s symbol) isMap() bool {
 	return (s.kind & skMap) != 0
 }
 
+func (s symbol) isPySequence() bool {
+	return s.isArray() || s.isSlice() || s.isMap()
+}
+
 func (s symbol) isSlice() bool {
 	return (s.kind & skSlice) != 0
 }
@@ -266,7 +270,6 @@ func (sym *symtab) typeof(n string) *symbol {
 	default:
 		panic(fmt.Errorf("unhandled symbol kind (%v)", s.kind))
 	}
-	panic("unreachable")
 }
 
 func (sym *symtab) typename(t types.Type, pkg *types.Package) string {
@@ -963,7 +966,7 @@ func init() {
 			goname:  "complex64",
 			cpyname: "float complex",
 			cgoname: "GoComplex64",
-			pyfmt:   "D",
+			pyfmt:   "O&",
 			pybuf:   "ff",
 			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex64",
@@ -979,7 +982,7 @@ func init() {
 			goname:  "complex128",
 			cpyname: "double complex",
 			cgoname: "GoComplex128",
-			pyfmt:   "D",
+			pyfmt:   "O&",
 			pybuf:   "dd",
 			pysig:   "complex",
 			c2py:    "cgopy_cnv_c2py_complex128",

@@ -4,6 +4,12 @@
 
 ## py2/py3 compat
 from __future__ import print_function
+import sys
+
+_PY3 = sys.version_info[0] == 3
+if _PY3:
+    xrange = range
+    pass
 
 import named
 
@@ -96,8 +102,8 @@ try:
     print("arr = named.Array(range(10))")
     arr = named.Array(range(10))
     print("arr = %s" % (arr,))
-except Exception, err:
-    print("caught: %s" % (err,))
+except Exception as err:
+    print("caught: %s" % (str(err),))
     pass
 
 print("arr = named.Array(xrange(2))")
@@ -119,4 +125,3 @@ print("s = %s" % (s,))
 print("s = named.Slice(xrange(10))")
 s = named.Slice(xrange(10))
 print("s = %s" % (s,))
-

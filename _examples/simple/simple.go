@@ -12,3 +12,15 @@ func Func() {}
 func Add(i, j int) int {
 	return i + j
 }
+
+func Bool(b bool) bool {
+	return b
+}
+
+func Comp64Add(i, j complex64) complex64 {
+	return i + j
+}
+
+func Comp128Add(i, j complex128) complex128 {
+	return i + j
+}

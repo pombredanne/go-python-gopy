@@ -7,6 +7,7 @@ gopy
 `gopy` generates (and compiles) a `CPython` extension module from a `go` package.
 
 **WARNING** `gopy` is currently not compatible with `Go>=1.6` and its improved `CGo` rules as documented in [cmd/cgo](https://golang.org/cmd/cgo/#hdr-Passing_pointers).
+To be able to run a `CPython` module generated with `Go>=1.6`, one needs to export `GODEBUG=cgocheck=0` to disable the `CGo` rules runtime checker. (see [issue 83](https://github.com/go-python/gopy/issues/83) for more informations.)
 
 ## Installation
 
@@ -15,6 +16,11 @@ $ go get github.com/go-python/gopy
 ```
 
 You will need `Go >= 1.5`.
+
+## Community
+
+The `go-python` community can be reached out at [go-python@googlegroups.com](mailto:go-python@googlegroups.com) or via the web forum: [go-python group](https://groups.google.com/forum/#!forum/go-python).
+See the [CONTRIBUTING](https://github.com/go-python/gopy/blob/master/CONTRIBUTE.md) guide for pointers on how to contribute to `gopy`.
 
 ## Documentation
 
@@ -63,7 +69,7 @@ ex:
  $ gopy bind github.com/go-python/gopy/_examples/hi
 
 Options:
-  -lang="py2": python version to use for bindings (python2|py2|python3|py3)
+  -lang="py2": python version to use for bindings (python2|py2|python3|py3|cffi)
   -output="": output directory for bindings
 ```
 
@@ -171,12 +177,12 @@ $ docker run -it --rm go-python/gopy
 - wrap `go` structs into `python` classes **[DONE]**
 - better pythonization: turn `go` `errors` into `python` exceptions **[DONE]**
 - wrap arrays and slices into types implementing `tp_as_sequence` **[DONE]**
-- only `python-2` supported for now
+- only `python-2` supported for now **[DONE]**
 
 ## Contribute
 
 `gopy` is part of the `go-python` organization and licensed under `BSD-3`.
 When you want to contribute a patch or some code to `gopy`, please send a pull
 request against the `gopy` issue tracker **AND** a pull request against
-(go-python/license)[https://github.com/go-python/license] adding yourself to the
+[go-python/license](https://github.com/go-python/license) adding yourself to the
 `AUTHORS` and `CONTRIBUTORS` files.

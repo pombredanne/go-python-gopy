@@ -33,6 +33,8 @@ ex:
 
 	cmd.Flag.String("lang", defaultPyVersion, "python version to use for bindings (python2|py2|python3|py3)")
 	cmd.Flag.String("output", "", "output directory for bindings")
+	cmd.Flag.Bool("symbols", true, "include symbols in output")
+	cmd.Flag.Bool("work", false, "print the name of temporary work directory and do not delete it when exiting")
 	return cmd
 }
 
@@ -48,6 +50,8 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 
 	odir := cmdr.Flag.Lookup("output").Value.Get().(string)
 	lang := cmdr.Flag.Lookup("lang").Value.Get().(string)
+	symbols := cmdr.Flag.Lookup("symbols").Value.Get().(bool)
+	printWork := cmdr.Flag.Lookup("work").Value.Get().(bool)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -60,7 +64,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 		err = os.MkdirAll(odir, 0755)
 		if err != nil {
 			return fmt.Errorf(
-				"gopy-bind: could not create output directory: %v\n", err,
+				"gopy-bind: could not create output directory: %v", err,
 			)
 		}
 	}
@@ -73,7 +77,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	pkg, err := newPackage(path)
 	if err != nil {
 		return fmt.Errorf(
-			"gopy-bind: go/build.Import failed with path=%q: %v\n",
+			"gopy-bind: go/build.Import failed with path=%q: %v",
 			path,
 			err,
 		)
@@ -82,8 +86,7 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	// go-get it to tickle the GOPATH cache (and make sure it compiles
 	// correctly)
 	cmd := exec.Command(
-		"go", "get", "-buildmode=c-shared",
-		pkg.ImportPath(),
+		"go", "get", pkg.ImportPath(),
 	)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -97,13 +100,17 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("gopy-bind: could not create temp-workdir (%v)", err)
 	}
-	log.Printf("work: %s\n", work)
+	if printWork {
+		log.Printf("work: %s\n", work)
+	}
 
 	err = os.MkdirAll(work, 0644)
 	if err != nil {
 		return fmt.Errorf("gopy-bind: could not create workdir (%v)", err)
 	}
-	//defer os.RemoveAll(work)
+	if !printWork {
+		defer os.RemoveAll(work)
+	}
 
 	err = genPkg(work, pkg, lang)
 	if err != nil {
@@ -126,32 +133,90 @@ func gopyRunCmdBind(cmdr *commander.Command, args []string) error {
 	}
 	defer os.RemoveAll(wbind)
 
+	buildname := pkg.Name()
+	switch lang {
+	case "cffi":
+		/*
+			Since Python importing module priority is XXXX.so > XXXX.py,
+			We need to change shared module name from  'XXXX.so' to '_XXXX.so'.
+			As the result, an user can import XXXX.py.
+		*/
+		buildname = "_" + buildname
+		cmd = getBuildCommand(wbind, buildname, work, symbols)
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		cmd = exec.Command(
+			"/bin/cp",
+			filepath.Join(wbind, buildname)+".so",
+			filepath.Join(odir, buildname)+".so",
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		cmd = exec.Command(
+			"/bin/cp",
+			filepath.Join(work, pkg.Name())+".py",
+			filepath.Join(odir, pkg.Name())+".py",
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
+	case "python2", "py2":
+		cmd = getBuildCommand(wbind, buildname, work, symbols)
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+
+		cmd = exec.Command(
+			"/bin/cp",
+			filepath.Join(wbind, buildname)+".so",
+			filepath.Join(odir, buildname)+".so",
+		)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+	case "python3", "py3":
+		return fmt.Errorf("gopy: python-3 support not yet implemented")
+	default:
+		return fmt.Errorf("gopy: unknown target language: %q", lang)
+	}
+	return err
+}
+
+func getBuildCommand(wbind string, buildname string, work string, symbols bool) (cmd *exec.Cmd) {
+	args := []string{"build", "-buildmode=c-shared"}
+	if !symbols {
+		// These flags will omit the various symbol tables, thereby
+		// reducing the final size of the binary. From https://golang.org/cmd/link/
+		// -s Omit the symbol table and debug information
+		// -w Omit the DWARF symbol table
+		args = append(args, "-ldflags=-s -w")
+	}
+	args = append(args, "-o", filepath.Join(wbind, buildname)+".so", ".")
 	cmd = exec.Command(
-		"go", "build", "-buildmode=c-shared",
-		"-o", filepath.Join(wbind, pkg.Name())+".so",
-		".",
+		"go", args...,
 	)
 	cmd.Dir = work
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	cmd = exec.Command(
-		"/bin/cp",
-		filepath.Join(wbind, pkg.Name())+".so",
-		filepath.Join(odir, pkg.Name())+".so",
-	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return err
-	}
-
-	return err
+	return cmd
 }
